@@ -11,7 +11,6 @@ SEALEVELPRESSURE_HPA = 1013.25
 
 i2c = board.STEMMA_I2C()
 bmp = BMP5XX(i2c)
-start_time = time.monotonic()
 
 bmp.sea_level_pressure = SEALEVELPRESSURE_HPA
 
