@@ -9,7 +9,10 @@ from adafruit_bmp5xx import BMP5XX
 
 SEALEVELPRESSURE_HPA = 1013.25
 
-i2c = board.STEMMA_I2C()
+# I2C setup
+i2c = board.I2C()  # uses board.SCL and board.SDA
+# i2c = board.STEMMA_I2C()  # For using the built-in STEMMA QT connector on a microcontroller
+
 bmp = BMP5XX(i2c)
 
 bmp.sea_level_pressure = SEALEVELPRESSURE_HPA
