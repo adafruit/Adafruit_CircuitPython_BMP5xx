@@ -228,6 +228,7 @@ class BMP5XX:
         except ValueError:
             raise ValueError(f"No I2C device found at address 0x{address:02X}")
 
+        self.sea_level_pressure = 1013.25
         self.reset()
         time.sleep(0.0025)
 
@@ -260,6 +261,12 @@ class BMP5XX:
         """Pressure in hPa."""
         raw_p = self._pressure
         return raw_p / 64.0 / 100.0  # Convert raw_data->Pa->hPa
+
+    @property
+    def altitude(self) -> float:
+        """The altitude in meters based on the currently set sea level pressure."""
+        # see https://www.weather.gov/media/epz/wxcalc/pressureAltitude.pdf
+        return 44307.7 * (1 - (self.pressure / self.sea_level_pressure) ** 0.190284)
 
     def reset(self) -> None:
         """Reset the BMP5xx device."""
