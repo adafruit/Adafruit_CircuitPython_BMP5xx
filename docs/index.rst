@@ -24,14 +24,14 @@ Table of Contents
 .. toctree::
     :caption: Tutorials
 
-.. todo:: Add any Learn guide links here. If there are none, then simply delete this todo and leave
-    the toctree above for use later.
+    Adafruit BMP5xx Learn Guide <https://learn.adafruit.com/adafruit-bmp580-bmp581-and-bmp585-temperature-and-pressure-sensor>
 
 .. toctree::
     :caption: Related Products
 
-.. todo:: Add any product links here. If there are none, then simply delete this todo and leave
-    the toctree above for use later.
+    Purchase BMP580 from the Adafruit shop <http://www.adafruit.com/products/6411>
+    Purchase BMP581 from the Adafruit shop <http://www.adafruit.com/products/6407>
+    Purchase BMP585 from the Adafruit shop <http://www.adafruit.com/products/6413>
 
 .. toctree::
     :caption: Other Links

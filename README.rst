@@ -40,17 +40,13 @@ or individual libraries can be installed using
 
 
 
-.. todo:: Describe the Adafruit product this library works with. For PCBs, you can also add the
-image from the assets folder in the PCB's GitHub repo.
+`Purchase BMP580 from the Adafruit shop <http://www.adafruit.com/products/6411>`_
+`Purchase BMP581 from the Adafruit shop <http://www.adafruit.com/products/6407>`_
+`Purchase BMP585 from the Adafruit shop <http://www.adafruit.com/products/6413>`_
 
-`Purchase one from the Adafruit shop <http://www.adafruit.com/products/6413>`_
 
 Installing from PyPI
 =====================
-.. note:: This library is not available on PyPI yet. Install documentation is included
-   as a standard element. Stay tuned for PyPI availability!
-
-.. todo:: Remove the above note if PyPI version is/will be available at time of release.
 
 On supported GNU/Linux systems like the Raspberry Pi, you can install the driver locally `from
 PyPI <https://pypi.org/project/adafruit-circuitpython-bmp5xx/>`_.
@@ -101,8 +97,23 @@ Or the following command to update an existing version:
 Usage Example
 =============
 
-.. todo:: Add a quick, simple example. It and other examples should live in the
-examples folder and be included in docs/examples.rst.
+.. code-block:: python
+
+    import time
+
+    import board
+
+    from adafruit_bmp5xx import BMP5XX
+
+    i2c = board.STEMMA_I2C()
+    bmp = BMP5XX(i2c)
+    start_time = time.monotonic()
+
+    while True:
+        if bmp.data_ready:
+            print(f"temp F: {bmp.temperature * (9 / 5) + 32} pressure: {bmp.pressure} hPa")
+            time.sleep(1)
+
 
 Documentation
 =============

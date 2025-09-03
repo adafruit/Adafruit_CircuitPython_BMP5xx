@@ -5,13 +5,13 @@ import time
 
 import board
 
-from adafruit_bmp5xx import ALTERNATE_ADDR, BMP5XX
+from adafruit_bmp5xx import BMP5XX
 
 i2c = board.STEMMA_I2C()
-bmp = BMP5XX(i2c, address=ALTERNATE_ADDR)
+bmp = BMP5XX(i2c)
 start_time = time.monotonic()
 
 while True:
-    print(f"temp F: {bmp.temperature * (9 / 5) + 32} pressure: {bmp.pressure} hPa")
-    time.sleep(1)
-    pass
+    if bmp.data_ready:
+        print(f"temp F: {bmp.temperature * (9 / 5) + 32} pressure: {bmp.pressure} hPa")
+        time.sleep(1)

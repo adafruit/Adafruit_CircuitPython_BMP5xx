@@ -16,19 +16,18 @@ Implementation Notes
 
 **Hardware:**
 
-.. todo:: Add links to any specific hardware product page(s), or category page(s).
-  Use unordered list & hyperlink rST inline format: "* `Link Text <url>`_"
+`Purchase BMP580 from the Adafruit shop <http://www.adafruit.com/products/6411>`_
+`Purchase BMP581 from the Adafruit shop <http://www.adafruit.com/products/6407>`_
+`Purchase BMP585 from the Adafruit shop <http://www.adafruit.com/products/6413>`_
 
 **Software and Dependencies:**
 
 * Adafruit CircuitPython firmware for the supported boards:
   https://circuitpython.org/downloads
 
-.. todo:: Uncomment or remove the Bus Device and/or the Register library dependencies
-  based on the library's use of either.
 
-# * Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
-# * Adafruit's Register library: https://github.com/adafruit/Adafruit_CircuitPython_Register
+* Adafruit's Bus Device library: https://github.com/adafruit/Adafruit_CircuitPython_BusDevice
+* Adafruit's Register library: https://github.com/adafruit/Adafruit_CircuitPython_Register
 """
 
 # imports
@@ -51,8 +50,8 @@ __version__ = "0.0.0+auto.0"
 __repo__ = "https://github.com/adafruit/Adafruit_CircuitPython_BMP5xx.git"
 
 # I2C Address
-DEFAULT_ADDR = const(0x46)
-ALTERNATE_ADDR = const(0x47)
+ALTERNATE_ADAFRUIT_ADDR = const(0x46)
+DEFAULT_ADAFRUIT_ADDR = const(0x47)
 
 BMP5_OK = const(0x00)
 BMP5XX_BEFORE_IIR_FILTER = const(0x00)
@@ -71,6 +70,7 @@ BMP5XX_REG_OSR_CONFIG = const(0x36)
 BMP5XX_REG_ODR_CONFIG = const(0x37)
 BMP5XX_REG_DSP_IIR = const(0x31)
 BMP5XX_REG_DSP_CONFIG = const(0x30)
+BMP5XX_REG_INT_SOURCE = const(0x15)
 
 # ODR settings
 BMP5XX_ODR_240_HZ = const(0x00)
@@ -139,60 +139,90 @@ BMP585_CHIP_ID = const(0x51)
 
 
 class BMP5XX:
+    """
+    Bosche BMP5xx temperature and pressure sensor breakout CircuitPython driver.
+    """
+
     chip_id: int = ROUnaryStruct(BMP5_REG_ID, "B")
 
     # Status register bits
     status_nvm_ready: bool = ROBit(BMP5_REG_STATUS, 1)  # NVM ready
     """True if NVM is ready."""
+
     status_nvm_err: bool = ROBit(BMP5_REG_STATUS, 2)  # NVM error
     """True if NVM is has an error."""
+
     int_status_por: bool = ROBit(BMP5_REG_INT_STATUS, 4)  # INT_STATUS por
     """True if power on, or software reset complete."""
+
+    data_ready_int_en: bool = RWBit(BMP5XX_REG_INT_SOURCE, 0)
+    """Set to True to enable data_ready interrupt register."""
+
+    fifo_full_int_en: bool = RWBit(BMP5XX_REG_INT_SOURCE, 1)
+    """Set to True to enable FIFO full interrupt register."""
+
+    fifo_threshold_int_en: bool = RWBit(BMP5XX_REG_INT_SOURCE, 2)
+    """Set to True to enable FIFO threshold interrupt register."""
+
+    pressure_oor_int_en: bool = RWBit(BMP5XX_REG_INT_SOURCE, 3)
+    """Set to True to enable pressure OOR interrupt register."""
+
+    data_ready: bool = ROBit(BMP5_REG_INT_STATUS, 0)
+    """True if data is ready."""
+
+    fifo_full_interrupt: bool = RWBit(BMP5_REG_INT_STATUS, 1)
+    """True when FIFO is full."""
+
+    fifo_threshold_interrupt: bool = RWBit(BMP5_REG_INT_STATUS, 2)
+    """True when FIFO reached threshold."""
+
+    pressure_oor_interrupt: bool = RWBit(BMP5_REG_INT_STATUS, 3)
+    """True when pressure is OOR."""
 
     _temperature = ROBits(24, BMP5XX_REG_TEMP_DATA_XLSB, 0, 3)
     _pressure = ROBits(24, BMP5XX_REG_PRESS_DATA_XLSB, 0, 3)
     _mode = RWBits(2, BMP5XX_REG_ODR_CONFIG, 0)
 
-    """Deep standby disabled"""
     deep_disabled = RWBit(BMP5XX_REG_ODR_CONFIG, 7)
+    """Deep standby disabled"""
 
-    """Pressure readings enabled"""
     pressure_enabled = RWBit(BMP5XX_REG_OSR_CONFIG, 6)
+    """Pressure readings enabled"""
 
-    """Pressure oversampling rate. Must be one of the OVERSAMPLING constants."""
     pressure_oversampling_rate = RWBits(3, BMP5XX_REG_OSR_CONFIG, 3)
+    """Pressure oversampling rate. Must be one of the OVERSAMPLING constants."""
 
-    """Temperature oversampling rate. Must be one of the OVERSAMPLING constants."""
     temperature_oversampling_rate = RWBits(3, BMP5XX_REG_OSR_CONFIG, 0)
+    """Temperature oversampling rate. Must be one of the OVERSAMPLING constants."""
 
-    """Pressure IIR Filter. Must be one of the IIR_FILTER constants."""
     pressure_iir_filter = RWBits(3, BMP5XX_REG_DSP_IIR, 3)
+    """Pressure IIR Filter. Must be one of the IIR_FILTER constants."""
 
-    """Temperature IIR Filter. Must be one of the IIR_FILTER constants."""
     temperature_iir_filter = RWBits(3, BMP5XX_REG_DSP_IIR, 0)
+    """Temperature IIR Filter. Must be one of the IIR_FILTER constants."""
 
-    """Pressure shadow IIR order. Must be BMP5XX_BEFORE_IIR_FILTER or BMP5XX_AFTER_IIR_FILTER"""
     pressure_shadow_iir = RWBit(BMP5XX_REG_DSP_CONFIG, 5)
+    """Pressure shadow IIR order. Must be BMP5XX_BEFORE_IIR_FILTER or BMP5XX_AFTER_IIR_FILTER"""
 
-    """Temperature shadow IIR order. Must be BMP5XX_BEFORE_IIR_FILTER or BMP5XX_AFTER_IIR_FILTER"""
     temperature_shadow_iir = RWBit(BMP5XX_REG_DSP_CONFIG, 3)
+    """Temperature shadow IIR order. Must be BMP5XX_BEFORE_IIR_FILTER or BMP5XX_AFTER_IIR_FILTER"""
 
-    """Pressure FIFO IIR order. Must be BMP5XX_BEFORE_IIR_FILTER or BMP5XX_AFTER_IIR_FILTER"""
     pressure_fifo_iir = RWBit(BMP5XX_REG_DSP_CONFIG, 6)
+    """Pressure FIFO IIR order. Must be BMP5XX_BEFORE_IIR_FILTER or BMP5XX_AFTER_IIR_FILTER"""
 
-    """Temperature FIFO IIR order. Must be BMP5XX_BEFORE_IIR_FILTER or BMP5XX_AFTER_IIR_FILTER"""
     temperature_fifo_iir = RWBit(BMP5XX_REG_DSP_CONFIG, 4)
+    """Temperature FIFO IIR order. Must be BMP5XX_BEFORE_IIR_FILTER or BMP5XX_AFTER_IIR_FILTER"""
 
-    """Use FORCED mode for IIR filter flush."""
     iir_flush_forced = RWBit(BMP5XX_REG_DSP_CONFIG, 2)
+    """Use FORCED mode for IIR filter flush."""
 
-    """Output data rate. Must be one of the ODR constants."""
     output_data_rate = RWBits(5, BMP5XX_REG_ODR_CONFIG, 2)
+    """Output data rate. Must be one of the ODR constants."""
 
-    """Command"""
     command = UnaryStruct(BMP5_REG_CMD, "B")  # command register
+    """Command register"""
 
-    def __init__(self, i2c: I2C, address: int = DEFAULT_ADDR) -> None:
+    def __init__(self, i2c: I2C, address: int = DEFAULT_ADAFRUIT_ADDR) -> None:
         try:
             self.i2c_device = I2CDevice(i2c, address)
         except ValueError:
@@ -202,22 +232,11 @@ class BMP5XX:
         time.sleep(0.0025)
 
         # Set default configuration
-
-        # _osr_odr_config.osr_t = BMP5_OVERSAMPLING_2X;
-        # _osr_odr_config.osr_p = BMP5_OVERSAMPLING_16X;
-        # _osr_odr_config.odr = BMP5_ODR_50_HZ;
-        # _osr_odr_config.press_en = BMP5_ENABLE;
         self.temperature_oversampling_rate = BMP5XX_OVERSAMPLING_2X
         self.pressure_oversampling_rate = BMP5XX_OVERSAMPLING_16X
         self.output_data_rate = BMP5XX_ODR_50_HZ
         self.pressure_enabled = True
 
-        # Set default IIR filter
-        # _iir_config.set_iir_t = BMP5_IIR_FILTER_COEFF_1;
-        # _iir_config.set_iir_p = BMP5_IIR_FILTER_COEFF_1;
-        # _iir_config.shdw_set_iir_t = BMP5_ENABLE;
-        # _iir_config.shdw_set_iir_p = BMP5_ENABLE;
-        # _iir_config.iir_flush_forced_en = BMP5_ENABLE;
         self.temperature_iir_filter = BMP5XX_IIR_FILTER_COEFF_1
         self.pressure_iir_filter = BMP5XX_IIR_FILTER_COEFF_1
         self.temperature_shadow_iir = BMP5XX_AFTER_IIR_FILTER
@@ -225,6 +244,10 @@ class BMP5XX:
         self.iir_flush_forced = True
 
         self.mode = BMP5XX_POWERMODE_NORMAL
+        self.data_ready_int_en = True
+        self.fifo_full_int_en = False
+        self.fifo_threshold_int_en = False
+        self.pressure_oor_int_en = False
 
     @property
     def temperature(self) -> float:
