@@ -38,12 +38,9 @@ This is easily achieved by downloading
 or individual libraries can be installed using
 `circup <https://github.com/adafruit/circup>`_.
 
-
-
-`Purchase BMP580 from the Adafruit shop <http://www.adafruit.com/products/6411>`_
-`Purchase BMP581 from the Adafruit shop <http://www.adafruit.com/products/6407>`_
-`Purchase BMP585 from the Adafruit shop <http://www.adafruit.com/products/6413>`_
-
+* `Purchase BMP580 from the Adafruit shop <http://www.adafruit.com/products/6411>`_
+* `Purchase BMP581 from the Adafruit shop <http://www.adafruit.com/products/6407>`_
+* `Purchase BMP585 from the Adafruit shop <http://www.adafruit.com/products/6413>`_
 
 Installing from PyPI
 =====================
