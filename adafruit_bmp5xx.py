@@ -138,7 +138,7 @@ BMP581_CHIP_ID = const(0x50)
 BMP585_CHIP_ID = const(0x51)
 
 
-class BMP5XX:
+class BMP5XX_I2C:
     """
     Bosche BMP5xx temperature and pressure sensor breakout CircuitPython driver.
     """

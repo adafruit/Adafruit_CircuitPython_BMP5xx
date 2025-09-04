@@ -23,6 +23,8 @@ Introduction
 
 CircuitPython library for the BMP580 / BMP581 / BMP585 / etc barometric pressure sensors.
 
+Please note: This driver currently only supports I2C communication. If you have a need for SPI support in the CircuitPython driver please file an issue.
+
 
 Dependencies
 =============
