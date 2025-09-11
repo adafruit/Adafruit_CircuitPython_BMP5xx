@@ -4,16 +4,17 @@
 import time
 
 import board
+from digitalio import DigitalInOut, Direction
 
-from adafruit_bmp5xx.bmp5xx_i2c import create_bmp5xx_i2c
+from adafruit_bmp5xx.bmp5xx_spi import create_bmp5xx_spi
 
 SEALEVELPRESSURE_HPA = 1013.25
 
-# I2C setup
-i2c = board.I2C()  # uses board.SCL and board.SDA
-# i2c = board.STEMMA_I2C()  # For using the built-in STEMMA QT connector on a microcontroller
-
-bmp = create_bmp5xx_i2c(i2c)
+spi = board.SPI()
+cs = DigitalInOut(board.D10)
+cs.direction = Direction.OUTPUT
+cs.value = False
+bmp = create_bmp5xx_spi(spi, cs)
 
 bmp.sea_level_pressure = SEALEVELPRESSURE_HPA
 
