@@ -1,4 +1,3 @@
-# SPDX-FileCopyrightText: 2017 Scott Shawcroft, written for Adafruit Industries
 # SPDX-FileCopyrightText: Copyright (c) 2025 Tim Cocks for Adafruit Industries
 #
 # SPDX-License-Identifier: MIT
@@ -34,15 +33,17 @@ Implementation Notes
 import time
 
 from adafruit_bus_device.i2c_device import I2CDevice
-from adafruit_register.i2c_bit import ROBit, RWBit
-from adafruit_register.i2c_bits import ROBits, RWBits
-from adafruit_register.i2c_struct import ROUnaryStruct, UnaryStruct
+from adafruit_bus_device.spi_device import SPIDevice  # noqa: PLC0415
+from adafruit_register.register_accessor import I2CRegisterAccessor, SPIRegisterAccessor
+from adafruit_register.register_bit import ROBit, RWBit
+from adafruit_register.register_bits import ROBits, RWBits
 from micropython import const
 
 try:
     from typing import Optional
 
-    from busio import I2C
+    from busio import I2C, SPI
+    from digitalio import DigitalInOut
 except ImportError:
     pass
 
@@ -71,6 +72,7 @@ BMP5XX_REG_ODR_CONFIG = const(0x37)
 BMP5XX_REG_DSP_IIR = const(0x31)
 BMP5XX_REG_DSP_CONFIG = const(0x30)
 BMP5XX_REG_INT_SOURCE = const(0x15)
+BMP_REG_ASIC_STATUS = const(0x11)
 
 # ODR settings
 BMP5XX_ODR_240_HZ = const(0x00)
@@ -138,12 +140,12 @@ BMP581_CHIP_ID = const(0x50)
 BMP585_CHIP_ID = const(0x51)
 
 
-class BMP5XX_I2C:
+class BMP5XX:
     """
     Bosche BMP5xx temperature and pressure sensor breakout CircuitPython driver.
     """
 
-    chip_id: int = ROUnaryStruct(BMP5_REG_ID, "B")
+    chip_id: int = ROBits(8, BMP5_REG_ID, 0)
 
     # Status register bits
     status_nvm_ready: bool = ROBit(BMP5_REG_STATUS, 1)  # NVM ready
@@ -219,14 +221,31 @@ class BMP5XX_I2C:
     output_data_rate = RWBits(5, BMP5XX_REG_ODR_CONFIG, 2)
     """Output data rate. Must be one of the ODR constants."""
 
-    command = UnaryStruct(BMP5_REG_CMD, "B")  # command register
+    command = RWBits(8, BMP5_REG_CMD, 0)  # command register
     """Command register"""
 
-    def __init__(self, i2c: I2C, address: int = DEFAULT_ADAFRUIT_ADDR) -> None:
-        try:
-            self.i2c_device = I2CDevice(i2c, address)
-        except ValueError:
-            raise ValueError(f"No I2C device found at address 0x{address:02X}")
+    hardware_interface = RWBits(2, BMP_REG_ASIC_STATUS, 0)
+
+    def __init__(
+        self,
+        i2c: I2C = None,
+        address: Optional[int] = DEFAULT_ADAFRUIT_ADDR,
+        spi: SPI = None,
+        cs: DigitalInOut = None,
+    ) -> None:
+        if spi is not None and cs is not None:
+            try:
+                self.spi_device = SPIDevice(spi, cs, baudrate=1000000)
+                self.register_accessor = SPIRegisterAccessor(self.spi_device)
+            except ValueError:
+                raise ValueError(f"No SPI device found.")
+
+        elif i2c is not None:
+            try:
+                i2c_device = I2CDevice(i2c, address)
+                self.register_accessor = I2CRegisterAccessor(i2c_device)
+            except ValueError:
+                raise ValueError(f"No I2C device found.")
 
         self.sea_level_pressure = 1013.25
         self.reset()
@@ -271,10 +290,11 @@ class BMP5XX_I2C:
     def reset(self) -> None:
         """Reset the BMP5xx device."""
         self.command = BMP5_SOFT_RESET_CMD
-        time.sleep(0.006)
+        time.sleep(0.012)
+        _throwaway = self.chip_id
 
         if self.chip_id not in {BMP581_CHIP_ID, BMP585_CHIP_ID}:
-            raise ValueError(f"CHIP_ID was zero")
+            raise ValueError(f"CHIP_ID was incorrect")
         if not self.status_nvm_ready:
             raise ValueError("NVM not ready")
         if self.status_nvm_err:
