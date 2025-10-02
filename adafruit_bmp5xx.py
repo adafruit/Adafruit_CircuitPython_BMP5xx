@@ -72,7 +72,6 @@ BMP5XX_REG_ODR_CONFIG = const(0x37)
 BMP5XX_REG_DSP_IIR = const(0x31)
 BMP5XX_REG_DSP_CONFIG = const(0x30)
 BMP5XX_REG_INT_SOURCE = const(0x15)
-BMP_REG_ASIC_STATUS = const(0x11)
 
 # ODR settings
 BMP5XX_ODR_240_HZ = const(0x00)
@@ -223,8 +222,6 @@ class BMP5XX:
 
     command = RWBits(8, BMP5_REG_CMD, 0)  # command register
     """Command register"""
-
-    hardware_interface = RWBits(2, BMP_REG_ASIC_STATUS, 0)
 
     def __init__(
         self,
