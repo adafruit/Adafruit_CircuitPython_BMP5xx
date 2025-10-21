@@ -16,12 +16,12 @@ spi = board.SPI()
 # first sensor setup
 cs1 = DigitalInOut(board.D10)
 cs1.direction = Direction.OUTPUT
-bmp1 = BMP5XX(spi=spi, cs=cs1)
+bmp1 = BMP5XX.over_spi(spi=spi, cs=cs1)
 
 # second sensor setup, different CS pin, same SPI bus
 cs2 = DigitalInOut(board.D11)
 cs2.direction = Direction.OUTPUT
-bmp2 = BMP5XX(spi=spi, cs=cs2)
+bmp2 = BMP5XX.over_spi(spi=spi, cs=cs2)
 
 bmp1.sea_level_pressure = SEALEVELPRESSURE_HPA
 bmp2.sea_level_pressure = SEALEVELPRESSURE_HPA

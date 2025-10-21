@@ -40,7 +40,7 @@ from adafruit_register.register_bits import ROBits, RWBits
 from micropython import const
 
 try:
-    from typing import Optional
+    from typing import Optional, Union
 
     from busio import I2C, SPI
     from digitalio import DigitalInOut
@@ -223,26 +223,38 @@ class BMP5XX:
     command = RWBits(8, BMP5_REG_CMD, 0)  # command register
     """Command register"""
 
-    def __init__(
-        self,
-        i2c: I2C = None,
-        address: Optional[int] = DEFAULT_ADAFRUIT_ADDR,
-        spi: SPI = None,
-        cs: DigitalInOut = None,
-    ) -> None:
-        if spi is not None and cs is not None:
-            try:
-                self.spi_device = SPIDevice(spi, cs, baudrate=1000000)
-                self.register_accessor = SPIRegisterAccessor(self.spi_device)
-            except ValueError:
-                raise ValueError(f"No SPI device found.")
+    @staticmethod
+    def over_spi(spi: SPI, cs: DigitalInOut):
+        """
+        Initialize BMP5XX breakout over SPI bus.
 
-        elif i2c is not None:
-            try:
-                i2c_device = I2CDevice(i2c, address)
-                self.register_accessor = I2CRegisterAccessor(i2c_device)
-            except ValueError:
-                raise ValueError(f"No I2C device found.")
+        :param spi: busio.SPI instance to communicate over
+        :param cs: DigitalInOut instance to use for chip select
+        :return: Initialized BMP5XX object
+        """
+        spi_device = SPIDevice(spi, cs)
+        return BMP5XX(spi_device)
+
+    @staticmethod
+    def over_i2c(i2c: I2C, address=DEFAULT_ADAFRUIT_ADDR):
+        """
+        Initialize BMP5XX breakout over I2C bus.
+
+        :param i2c: busio.I2C instance to communicate over
+        :param address: The I2C address to use. Defaults to DEFAULT_ADAFRUIT_ADDR
+        :return: Initialized BMP5XX object
+        """
+        i2c_device = I2CDevice(i2c, address)
+        return BMP5XX(i2c_device)
+
+    def __init__(self, bus_device: Union[I2CDevice, SPIDevice]):
+        if isinstance(bus_device, SPIDevice):
+            self.register_accessor = SPIRegisterAccessor(bus_device)
+
+        elif isinstance(bus_device, I2CDevice):
+            self.register_accessor = I2CRegisterAccessor(bus_device)
+        else:
+            raise ValueError("bus_device must be an instance of I2CDevice or SPIDevice.")
 
         self.sea_level_pressure = 1013.25
         self.reset()
@@ -326,3 +338,13 @@ class BMP5XX:
 
         self.deep_disabled = True
         self._mode = new_mode
+
+
+def BMP5XX_I2C(i2c: I2C, address: int = DEFAULT_ADAFRUIT_ADDR) -> BMP5XX:
+    import warnings  # noqa: PLC0415, import outside top level
+
+    warnings.warn(
+        "Warning: BMP5XX_I2C class is deprecated and will be removed in a future version. "
+        "User code should be updated to use BMP5XX.over_i2c()"
+    )
+    return BMP5XX.over_i2c(i2c, address)

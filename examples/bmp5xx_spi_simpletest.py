@@ -15,7 +15,7 @@ spi = board.SPI()  # uses board.SCL and board.SDA
 spi = board.SPI()
 cs = DigitalInOut(board.D10)
 cs.direction = Direction.OUTPUT
-bmp = BMP5XX(spi=spi, cs=cs)
+bmp = BMP5XX.over_spi(spi=spi, cs=cs)
 
 
 bmp.sea_level_pressure = SEALEVELPRESSURE_HPA
