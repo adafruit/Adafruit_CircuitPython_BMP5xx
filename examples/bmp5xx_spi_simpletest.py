@@ -11,7 +11,6 @@ from adafruit_bmp5xx import BMP5XX
 SEALEVELPRESSURE_HPA = 1013.25
 
 # SPI setup
-spi = board.SPI()  # uses board.SCL and board.SDA
 spi = board.SPI()
 cs = DigitalInOut(board.D10)
 cs.direction = Direction.OUTPUT
