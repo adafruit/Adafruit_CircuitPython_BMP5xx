@@ -1,4 +1,3 @@
-# SPDX-FileCopyrightText: 2017 Scott Shawcroft, written for Adafruit Industries
 # SPDX-FileCopyrightText: Copyright (c) 2025 Tim Cocks for Adafruit Industries
 #
 # SPDX-License-Identifier: MIT
@@ -34,15 +33,17 @@ Implementation Notes
 import time
 
 from adafruit_bus_device.i2c_device import I2CDevice
-from adafruit_register.i2c_bit import ROBit, RWBit
-from adafruit_register.i2c_bits import ROBits, RWBits
-from adafruit_register.i2c_struct import ROUnaryStruct, UnaryStruct
+from adafruit_bus_device.spi_device import SPIDevice  # noqa: PLC0415
+from adafruit_register.register_accessor import I2CRegisterAccessor, SPIRegisterAccessor
+from adafruit_register.register_bit import ROBit, RWBit
+from adafruit_register.register_bits import ROBits, RWBits
 from micropython import const
 
 try:
-    from typing import Optional
+    from typing import Optional, Union
 
-    from busio import I2C
+    from busio import I2C, SPI
+    from digitalio import DigitalInOut
 except ImportError:
     pass
 
@@ -138,12 +139,12 @@ BMP581_CHIP_ID = const(0x50)
 BMP585_CHIP_ID = const(0x51)
 
 
-class BMP5XX_I2C:
+class BMP5XX:
     """
     Bosche BMP5xx temperature and pressure sensor breakout CircuitPython driver.
     """
 
-    chip_id: int = ROUnaryStruct(BMP5_REG_ID, "B")
+    chip_id: int = ROBits(8, BMP5_REG_ID, 0)
 
     # Status register bits
     status_nvm_ready: bool = ROBit(BMP5_REG_STATUS, 1)  # NVM ready
@@ -219,14 +220,41 @@ class BMP5XX_I2C:
     output_data_rate = RWBits(5, BMP5XX_REG_ODR_CONFIG, 2)
     """Output data rate. Must be one of the ODR constants."""
 
-    command = UnaryStruct(BMP5_REG_CMD, "B")  # command register
+    command = RWBits(8, BMP5_REG_CMD, 0)  # command register
     """Command register"""
 
-    def __init__(self, i2c: I2C, address: int = DEFAULT_ADAFRUIT_ADDR) -> None:
-        try:
-            self.i2c_device = I2CDevice(i2c, address)
-        except ValueError:
-            raise ValueError(f"No I2C device found at address 0x{address:02X}")
+    @staticmethod
+    def over_spi(spi: SPI, cs: DigitalInOut):
+        """
+        Initialize BMP5XX breakout over SPI bus.
+
+        :param spi: busio.SPI instance to communicate over
+        :param cs: DigitalInOut instance to use for chip select
+        :return: Initialized BMP5XX object
+        """
+        spi_device = SPIDevice(spi, cs)
+        return BMP5XX(spi_device)
+
+    @staticmethod
+    def over_i2c(i2c: I2C, address=DEFAULT_ADAFRUIT_ADDR):
+        """
+        Initialize BMP5XX breakout over I2C bus.
+
+        :param i2c: busio.I2C instance to communicate over
+        :param address: The I2C address to use. Defaults to DEFAULT_ADAFRUIT_ADDR
+        :return: Initialized BMP5XX object
+        """
+        i2c_device = I2CDevice(i2c, address)
+        return BMP5XX(i2c_device)
+
+    def __init__(self, bus_device: Union[I2CDevice, SPIDevice]):
+        if isinstance(bus_device, SPIDevice):
+            self.register_accessor = SPIRegisterAccessor(bus_device)
+
+        elif isinstance(bus_device, I2CDevice):
+            self.register_accessor = I2CRegisterAccessor(bus_device)
+        else:
+            raise ValueError("bus_device must be an instance of I2CDevice or SPIDevice.")
 
         self.sea_level_pressure = 1013.25
         self.reset()
@@ -271,10 +299,11 @@ class BMP5XX_I2C:
     def reset(self) -> None:
         """Reset the BMP5xx device."""
         self.command = BMP5_SOFT_RESET_CMD
-        time.sleep(0.006)
+        time.sleep(0.012)
+        _throwaway = self.chip_id
 
         if self.chip_id not in {BMP581_CHIP_ID, BMP585_CHIP_ID}:
-            raise ValueError(f"CHIP_ID was zero")
+            raise ValueError(f"CHIP_ID was incorrect")
         if not self.status_nvm_ready:
             raise ValueError("NVM not ready")
         if self.status_nvm_err:
@@ -309,3 +338,13 @@ class BMP5XX_I2C:
 
         self.deep_disabled = True
         self._mode = new_mode
+
+
+def BMP5XX_I2C(i2c: I2C, address: int = DEFAULT_ADAFRUIT_ADDR) -> BMP5XX:
+    import warnings  # noqa: PLC0415, import outside top level
+
+    warnings.warn(
+        "Warning: BMP5XX_I2C class is deprecated and will be removed in a future version. "
+        "User code should be updated to use BMP5XX.over_i2c()"
+    )
+    return BMP5XX.over_i2c(i2c, address)
