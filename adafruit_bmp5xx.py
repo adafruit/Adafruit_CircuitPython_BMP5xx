@@ -180,8 +180,8 @@ class BMP5XX:
     pressure_oor_interrupt: bool = RWBit(BMP5_REG_INT_STATUS, 3)
     """True when pressure is OOR."""
 
-    _temperature = ROBits(24, BMP5XX_REG_TEMP_DATA_XLSB, 0, 3)
-    _pressure = ROBits(24, BMP5XX_REG_PRESS_DATA_XLSB, 0, 3)
+    _temperature = ROBits(24, BMP5XX_REG_TEMP_DATA_XLSB, 0, 3, signed=True)
+    _pressure = ROBits(24, BMP5XX_REG_PRESS_DATA_XLSB, 0, 3, signed=True)
     _mode = RWBits(2, BMP5XX_REG_ODR_CONFIG, 0)
 
     deep_disabled = RWBit(BMP5XX_REG_ODR_CONFIG, 7)
