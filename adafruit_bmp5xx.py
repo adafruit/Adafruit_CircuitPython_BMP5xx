@@ -182,6 +182,13 @@ class BMP5XX:
 
     _temperature = ROBits(24, BMP5XX_REG_TEMP_DATA_XLSB, 0, 3, signed=True)
     _pressure = ROBits(24, BMP5XX_REG_PRESS_DATA_XLSB, 0, 3, signed=True)
+
+    # Single-burst read of all six data bytes (0x1D..0x22).  Data shadowing only
+    # guarantees a consistent sample within one burst (BMP581 DS sec 2.1 /
+    # BMP580 sec 9 / BMP585 sec 9), so a paired temperature+pressure must come from
+    # one transaction or it can tear across a new sample.
+    # Read unsigned; each 24-bit half is sign-extended separately in measurements().
+    _temp_and_press = ROBits(48, BMP5XX_REG_TEMP_DATA_XLSB, 0, 6)
     _mode = RWBits(2, BMP5XX_REG_ODR_CONFIG, 0)
 
     deep_disabled = RWBit(BMP5XX_REG_ODR_CONFIG, 7)
@@ -278,22 +285,79 @@ class BMP5XX:
         self.fifo_threshold_int_en = False
         self.pressure_oor_int_en = False
 
+        # Block until the first conversion has completed so the very first
+        # temperature/pressure read returns a real sample instead of the
+        # power-on data-register sentinel (every data byte resets to 0x7F, i.e.
+        # raw 0x7F7F7F -> +127.5 C / ~1305 hPa).  See BMP581 DS sec 12 (bring-up)
+        # and sec 2 (data registers); identical on BMP580/BMP585.
+        self._wait_first_data()
+
+    def _wait_first_data(self, timeout: float = 0.03) -> None:
+        """Block until the first measurement is ready, bounded by ``timeout``.
+
+        Polls ``INT_STATUS.drdy`` (clear-on-read) and returns as soon as data is
+        ready.  Falls through after ``timeout`` instead of raising, so this adds
+        no failure mode the previous library did not have; ``timeout`` defaults
+        to the datasheet worst case (t_startup_deep + conversion at the default
+        OSR), so it cannot hang.
+
+        :param timeout: maximum seconds to wait before returning
+        :type timeout: float
+        """
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            if self.data_ready:
+                return
+            time.sleep(0.001)
+
     @property
     def temperature(self) -> float:
-        """Temperature in degress C."""
+        """Temperature in degress C.
+
+        :rtype: float
+        """
         raw_t = self._temperature
         return raw_t / 65536.0
 
     @property
     def pressure(self) -> float:
-        """Pressure in hPa."""
+        """Pressure in hPa.
+
+        :rtype: float
+        """
         raw_p = self._pressure
         return raw_p / 64.0 / 100.0  # Convert raw_data->Pa->hPa
 
     @property
+    def measurements(self) -> tuple:
+        """Temperature (deg C) and pressure (hPa) from one consistent burst.
+
+        Reads all six data registers (0x1D..0x22) in a single transaction so the
+        two values are guaranteed to come from the same sensor sample.  Prefer this
+        over reading :attr:`temperature` and :attr:`pressure` back to back, which
+        are separate bursts and can straddle a new sample, returning a mismatched
+        pair (BMP581 DS sec 2.1).
+
+        :return: ``(temperature_C, pressure_hPa)``
+        :rtype: Tuple[float, float]
+        """
+        raw = self._temp_and_press
+        raw_t = raw & 0xFFFFFF
+        if raw_t & 0x800000:  # sign-extend the 24-bit temperature
+            raw_t -= 0x1000000
+        raw_p = (raw >> 24) & 0xFFFFFF
+        if raw_p & 0x800000:  # sign-extend the 24-bit pressure
+            raw_p -= 0x1000000
+        return (raw_t / 65536.0, raw_p / 64.0 / 100.0)
+
+    @property
     def altitude(self) -> float:
-        """The altitude in meters based on the currently set sea level pressure."""
-        # see https://www.weather.gov/media/epz/wxcalc/pressureAltitude.pdf
+        """The altitude in meters based on the currently set sea level pressure.
+
+        .. seealso:: https://www.weather.gov/media/epz/wxcalc/pressureAltitude.pdf
+
+        :rtype: float
+        """
         return 44307.7 * (1 - (self.pressure / self.sea_level_pressure) ** 0.190284)
 
     def reset(self) -> None:
@@ -302,8 +366,12 @@ class BMP5XX:
         time.sleep(0.012)
         _throwaway = self.chip_id
 
-        if self.chip_id not in {BMP581_CHIP_ID, BMP585_CHIP_ID}:
-            raise ValueError(f"CHIP_ID was incorrect")
+        # List every supported part's CHIP_ID explicitly.  BMP580 and BMP581 both
+        # report 0x50, so the original set accepted BMP580 only by the accident of
+        # that collision; naming it makes intent clear and keeps the check correct
+        # if a future ID stops colliding.  (580/581 = 0x50, 585 = 0x51.)
+        if self.chip_id not in {BMP580_CHIP_ID, BMP581_CHIP_ID, BMP585_CHIP_ID}:
+            raise ValueError("CHIP_ID was incorrect")
         if not self.status_nvm_ready:
             raise ValueError("NVM not ready")
         if self.status_nvm_err:
@@ -313,7 +381,10 @@ class BMP5XX:
 
     @property
     def mode(self) -> int:
-        """Mode of operation. Must be one of the POWERMODE constants."""
+        """Mode of operation. Must be one of the POWERMODE constants.
+
+        :rtype: int
+        """
         return self._mode
 
     @mode.setter
