@@ -184,9 +184,8 @@ class BMP5XX:
     _pressure = ROBits(24, BMP5XX_REG_PRESS_DATA_XLSB, 0, 3, signed=True)
 
     # Single-burst read of all six data bytes (0x1D..0x22).  Data shadowing only
-    # guarantees a consistent sample within one burst (BMP581 DS sec 2.1 /
-    # BMP580 sec 9 / BMP585 sec 9), so a paired temperature+pressure must come from
-    # one transaction or it can tear across a new sample.
+    # guarantees a consistent sample within one burst (BMP58x DS sec 4.5.1),
+    # so a paired temperature+pressure must come from a single transaction..
     # Read unsigned; each 24-bit half is sign-extended separately in measurements().
     _temp_and_press = ROBits(48, BMP5XX_REG_TEMP_DATA_XLSB, 0, 6)
     _mode = RWBits(2, BMP5XX_REG_ODR_CONFIG, 0)
@@ -288,8 +287,8 @@ class BMP5XX:
         # Block until the first conversion has completed so the very first
         # temperature/pressure read returns a real sample instead of the
         # power-on data-register sentinel (every data byte resets to 0x7F, i.e.
-        # raw 0x7F7F7F -> +127.5 C / ~1305 hPa).  See BMP581 DS sec 12 (bring-up)
-        # and sec 2 (data registers); identical on BMP580/BMP585.
+        # raw 0x7F7F7F -> +127.5 C / ~1305 hPa).  See BMP581 DS sec 2 (start-up
+        # time); identical on BMP580/BMP585.
         self._wait_first_data()
 
     def _wait_first_data(self, timeout: float = 0.03) -> None:
@@ -332,11 +331,10 @@ class BMP5XX:
     def measurements(self) -> tuple:
         """Temperature (deg C) and pressure (hPa) from one consistent burst.
 
-        Reads all six data registers (0x1D..0x22) in a single transaction so the
-        two values are guaranteed to come from the same sensor sample.  Prefer this
-        over reading :attr:`temperature` and :attr:`pressure` back to back, which
-        are separate bursts and can straddle a new sample, returning a mismatched
-        pair (BMP581 DS sec 2.1).
+        Reads all both values in a single transaction so the two values are
+        guaranteed to come from the same sensor sample.  Prefer this over reading
+        :attr:`temperature` and :attr:`pressure` back to back, which can straddle
+        a new sample, returning a mismatched pair
 
         :return: ``(temperature_C, pressure_hPa)``
         :rtype: Tuple[float, float]
@@ -366,10 +364,7 @@ class BMP5XX:
         time.sleep(0.012)
         _throwaway = self.chip_id
 
-        # List every supported part's CHIP_ID explicitly.  BMP580 and BMP581 both
-        # report 0x50, so the original set accepted BMP580 only by the accident of
-        # that collision; naming it makes intent clear and keeps the check correct
-        # if a future ID stops colliding.  (580/581 = 0x50, 585 = 0x51.)
+        # List every supported part's CHIP_ID explicitly.
         if self.chip_id not in {BMP580_CHIP_ID, BMP581_CHIP_ID, BMP585_CHIP_ID}:
             raise ValueError("CHIP_ID was incorrect")
         if not self.status_nvm_ready:
